@@ -1,5 +1,4 @@
 import os
-import markdown
 import re
 from typing import List, Dict
 
@@ -7,6 +6,7 @@ class DocumentProcessor:
     def __init__(self):
         self.primary_kb = []
         self.secondary_kb = []
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
     
     def load_markdown_files(self, directory_path: str) -> List[Dict]:
         """Load all markdown files from a directory"""
@@ -40,10 +40,14 @@ class DocumentProcessor:
     def load_all(self):
         """Load both primary and secondary knowledge bases"""
         print("Loading Primary Knowledge Base...")
-        self.primary_kb = self.load_markdown_files("knowledge_base/primary")
+        self.primary_kb = self.load_markdown_files(
+            os.path.join(self.base_dir, "knowledge_base", "primary")
+        )
         
         print("Loading Secondary Knowledge Base...")
-        self.secondary_kb = self.load_markdown_files("knowledge_base/secondary")
+        self.secondary_kb = self.load_markdown_files(
+            os.path.join(self.base_dir, "knowledge_base", "secondary")
+        )
         
         print(f"Loaded {len(self.primary_kb)} primary and {len(self.secondary_kb)} secondary documents")
         return self.primary_kb, self.secondary_kb
