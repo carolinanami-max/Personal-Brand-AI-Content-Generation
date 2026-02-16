@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Sofie Bennet profile avatar">
+  <defs>
+    <radialGradient id="bg" cx="28%" cy="24%" r="85%">
+      <stop offset="0%" stop-color="#6f2640"/>
+      <stop offset="100%" stop-color="#2f1831"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4b2f23"/>
+      <stop offset="100%" stop-color="#2a1a13"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="64" fill="url(#bg)"/>
+  <ellipse cx="64" cy="82" rx="30" ry="22" fill="#535d6f"/>
+  <ellipse cx="64" cy="54" rx="29" ry="32" fill="url(#hair)"/>
+  <ellipse cx="64" cy="59" rx="23" ry="27" fill="#f1cfbf"/>
+  <path d="M44 56c6-12 16-19 30-20 4 0 8 1 12 2-6-10-17-16-31-16-18 0-31 13-33 31 7-4 14-3 22 3z" fill="url(#hair)"/>
+  <path d="M51 63c4 2 8 2 12 0" stroke="#815f52" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M64 78c5 0 9-2 12-5" stroke="#c17f76" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <circle cx="56" cy="58" r="2" fill="#513c34"/>
+  <circle cx="72" cy="58" r="2" fill="#513c34"/>
+</svg>

@@ -1,0 +1,36 @@
+Generate strategic content pillars for an AI consultant serving SMEs.
+
+PROMPTING REQUIREMENTS (mandatory):
+- Generate 4-6 pillars maximum.
+- Do not include generic pillars like "AI News" unless the brand profile strongly justifies it.
+- Every pillar must be business-value oriented for SMEs (ROI, efficiency, risk, adoption).
+- Avoid jargon. Write in a practical consultant tone.
+- Pillars must be reusable across multiple weeks (not trend-of-the-day topics).
+
+Pillar quality requirements:
+- Each pillar must represent a distinct strategic theme.
+- Each description must be specific and actionable for SME decision-makers.
+- `sme_pain_points` should capture practical constraints SMEs face (budget, bandwidth, execution risk, adoption friction).
+- `example_angles` should be concrete and post-ready.
+- `recommended_post_types` must use only allowed values.
+- `priority` must be unique per pillar, with 1 as highest priority.
+- `id` must be a short kebab-case slug derived from `name`.
+
+Return valid JSON only.
+OUTPUT JSON SCHEMA (EXACT):
+{
+  "user_id": "string",
+  "created_at": "ISO-8601",
+  "version": "v1",
+  "pillars": [
+    {
+      "id": "slug",
+      "name": "string",
+      "description": "string",
+      "sme_pain_points": ["string", "..."],
+      "example_angles": ["string", "..."],
+      "recommended_post_types": ["thought_leadership" | "educational" | "case_study" | "contrarian" | "lead_magnet"],
+      "priority": 1
+    }
+  ]
+}

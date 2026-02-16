@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
+_CLIENT_CACHE: Dict[tuple, OpenAI] = {}
 
 # Optional default pricing (USD per 1M tokens).
 # Override via config["pricing"] for exact models/rates in your environment.
@@ -45,14 +46,22 @@ def _get_client(config: Dict[str, Any]) -> OpenAI:
 
     base_url = config.get("base_url")
     timeout = config.get("timeout")
+    cache_key = (api_key, base_url, timeout)
+    cached = _CLIENT_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
 
     if base_url and timeout:
-        return OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
-    if base_url:
-        return OpenAI(api_key=api_key, base_url=base_url)
-    if timeout:
-        return OpenAI(api_key=api_key, timeout=timeout)
-    return OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+    elif base_url:
+        client = OpenAI(api_key=api_key, base_url=base_url)
+    elif timeout:
+        client = OpenAI(api_key=api_key, timeout=timeout)
+    else:
+        client = OpenAI(api_key=api_key)
+
+    _CLIENT_CACHE[cache_key] = client
+    return client
 
 
 def generate_completion(messages: List[Dict[str, str]], config: Dict[str, Any]) -> Dict[str, Any]:

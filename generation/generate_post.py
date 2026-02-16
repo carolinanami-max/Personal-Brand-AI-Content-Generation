@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import json
 import logging
 import os
@@ -85,6 +86,7 @@ def _build_user_prompt(
     topic: str,
     business_objective: str,
     angle_instruction: str = "",
+    feedback_guidance: str = "",
 ) -> str:
     # GET RAG CONTEXT FROM KNOWLEDGE BASE
     context = doc_processor.search(topic)
@@ -97,9 +99,12 @@ def _build_user_prompt(
         brand_context=context,
         market_context="N/A",
     )
-    if not angle_instruction:
-        return base
-    return f"{base}\n\nAdditional angle instruction:\n- {angle_instruction}"
+    sections = [base]
+    if angle_instruction:
+        sections.append(f"Additional angle instruction:\n- {angle_instruction}")
+    if (feedback_guidance or "").strip():
+        sections.append(f"Feedback memory from previous outputs:\n{feedback_guidance.strip()}")
+    return "\n\n".join(sections)
 
 
 def _generate_candidate_drafts(
@@ -109,14 +114,17 @@ def _generate_candidate_drafts(
     post_type: str,
     business_objective: str,
     config: Dict[str, Any],
+    feedback_guidance: str = "",
 ) -> List[Dict[str, Any]]:
-    candidates: List[Dict[str, Any]] = []
-    for angle_name, angle_instruction in ANGLE_STRATEGIES:
+    candidates_by_index: Dict[int, Dict[str, Any]] = {}
+
+    def _generate_for_angle(index: int, angle_name: str, angle_instruction: str) -> Tuple[int, Dict[str, Any]]:
         user_prompt = _build_user_prompt(
             template_text=template_text,
             topic=topic,
             business_objective=business_objective,
             angle_instruction=angle_instruction,
+            feedback_guidance=feedback_guidance,
         )
         messages = [
             {"role": "system", "content": system_prompt},
@@ -124,24 +132,37 @@ def _generate_candidate_drafts(
         ]
         llm_result = generate_completion(messages=messages, config=config)
         text = (llm_result.get("content") or "").strip()
-        if not text:
-            continue
-        candidates.append(
-            {
-                "post_type": post_type,
-                "angle": angle_name,
-                "text": text,
-                "llm": {
-                    "model": llm_result.get("model"),
-                    "attempts": llm_result.get("attempts"),
-                    "usage": llm_result.get("usage", {}),
-                    "length": llm_result.get("length", {}),
-                    "estimated_cost_usd": llm_result.get("estimated_cost_usd", 0.0),
-                    "error": llm_result.get("error"),
-                },
-            }
-        )
-    return candidates
+        candidate = {
+            "post_type": post_type,
+            "angle": angle_name,
+            "text": text,
+            "llm": {
+                "model": llm_result.get("model"),
+                "attempts": llm_result.get("attempts"),
+                "usage": llm_result.get("usage", {}),
+                "length": llm_result.get("length", {}),
+                "estimated_cost_usd": llm_result.get("estimated_cost_usd", 0.0),
+                "error": llm_result.get("error"),
+            },
+        }
+        return index, candidate
+
+    max_workers = min(len(ANGLE_STRATEGIES), int(config.get("parallel_workers", 3)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_generate_for_angle, idx, angle_name, angle_instruction)
+            for idx, (angle_name, angle_instruction) in enumerate(ANGLE_STRATEGIES)
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                idx, candidate = future.result()
+            except Exception:
+                continue
+            if (candidate.get("text") or "").strip():
+                candidates_by_index[idx] = candidate
+
+    ordered_indices = sorted(candidates_by_index.keys())
+    return [candidates_by_index[idx] for idx in ordered_indices]
 
 
 def _build_mock_post(topic: str, post_type: str, business_objective: str) -> str:
@@ -197,6 +218,7 @@ def generate_post(
 
     system_prompt = _load_prompt_file("system_prompt.txt")
     template_text = _load_prompt_file(TEMPLATE_MAP[normalized_type])
+    feedback_guidance = str(config.get("feedback_guidance", "") or "")
     candidates = _generate_candidate_drafts(
         system_prompt=system_prompt,
         template_text=template_text,
@@ -204,6 +226,7 @@ def generate_post(
         post_type=normalized_type,
         business_objective=business_objective,
         config=config,
+        feedback_guidance=feedback_guidance,
     )
     if not candidates:
         raise RuntimeError("Failed to generate candidate drafts.")
@@ -233,6 +256,7 @@ def generate_post(
             "selected_index": best_index,
             "selected_angle": selected["angle"],
             "evaluator": evaluator_metadata,
+            "feedback_guidance_used": bool(feedback_guidance.strip()),
         },
         "candidates": candidates,
         "llm": {
