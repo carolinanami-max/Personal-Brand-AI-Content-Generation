@@ -72,7 +72,7 @@ class DocumentProcessor:
                 results.append((score, doc))
         
         # Sort by relevance
-        results.sort(key=lambda x: x[0], reverse=True)
+        results.sort(reverse=True)
         
         # Format context for prompt
         if not results:
