@@ -72,7 +72,7 @@ class DocumentProcessor:
                 results.append((score, doc))
         
         # Sort by relevance only (avoid comparing dict payloads on score ties)
-        results.sort(key=lambda item: item[0], key=lambda x: x[0], reverse=True)
+        results.sort(key=lambda item: item[0], reverse=True)
         
         # Format context for prompt
         if not results:

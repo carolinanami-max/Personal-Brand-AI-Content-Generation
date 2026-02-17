@@ -253,6 +253,20 @@ def _extract_json_payload(text: str) -> Dict[str, Any]:
         except Exception as exc:
             parse_errors.append(str(exc))
 
+    # Salvage attempt: if the model appended trailing broken text, try parsing up to
+    # the last plausible object terminator.
+    core = content[start:]
+    closing_positions = [idx for idx, ch in enumerate(core) if ch == "}"]
+    for idx in reversed(closing_positions[-60:]):
+        candidate = core[: idx + 1]
+        try:
+            payload, _ = decoder.raw_decode(candidate)
+            if not isinstance(payload, dict):
+                continue
+            return payload
+        except Exception as exc:
+            parse_errors.append(str(exc))
+
     raise ValueError(f"Invalid JSON payload from model. Parse errors: {' | '.join(parse_errors)}")
 
 
@@ -341,30 +355,62 @@ def generate_content_pillars(
 
     template = _load_prompt_file("pillar_generation_prompt.txt")
     user_prompt = template
+    base_max_tokens = max(1200, int(max_tokens))
     config = {
         "model": (custom_model or model or "").strip(),
         "temperature": temperature,
-        "max_tokens": max(600, int(max_tokens)),
+        "max_tokens": base_max_tokens,
         "retries": retries,
         "timeout": timeout,
         "response_format": {"type": "json_object"},
     }
 
     try:
-        result = generate_completion(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You generate reusable SME content pillars. "
-                        "Return strict JSON only matching the requested schema."
-                    ),
-                },
-                {"role": "user", "content": user_prompt},
-            ],
-            config=config,
-        )
-        payload = _extract_json_payload(result.get("content", ""))
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You generate reusable SME content pillars. "
+                    "Return strict JSON only matching the requested schema."
+                ),
+            },
+            {"role": "user", "content": user_prompt},
+        ]
+
+        def _request_pillars(request_config: Dict[str, Any]) -> Dict[str, Any]:
+            result = generate_completion(messages=messages, config=request_config)
+            content = (result.get("content") or "").strip()
+            if not content:
+                llm_error = (result.get("error") or "").strip()
+                if llm_error:
+                    raise ValueError(f"Model returned empty content. LLM error: {llm_error}")
+                raise ValueError("Model returned empty content.")
+            return _extract_json_payload(content)
+
+        request_variants: List[Dict[str, Any]] = [
+            dict(config),
+            # Some model/provider combinations reject response_format=json_object.
+            {k: v for k, v in config.items() if k != "response_format"},
+            # Last retry with more output budget in case of truncation.
+            {
+                **{k: v for k, v in config.items() if k != "response_format"},
+                "max_tokens": max(1800, base_max_tokens),
+                "temperature": min(float(temperature), 0.5),
+            },
+        ]
+
+        last_exc: Optional[Exception] = None
+        payload: Optional[Dict[str, Any]] = None
+        for variant in request_variants:
+            try:
+                payload = _request_pillars(variant)
+                break
+            except Exception as exc:
+                last_exc = exc
+
+        if payload is None:
+            raise ValueError(str(last_exc) if last_exc else "Unable to generate pillars.")
+
         payload["user_id"] = payload.get("user_id") or ""
         payload["version"] = payload.get("version") or "v1"
         payload["created_at"] = payload.get("created_at") or datetime.now(timezone.utc).isoformat()
