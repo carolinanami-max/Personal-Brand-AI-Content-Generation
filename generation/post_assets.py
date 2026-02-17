@@ -89,9 +89,10 @@ def generate_post_image(post: str, topic: str, config: Dict[str, Any]) -> Tuple[
     client = OpenAI(api_key=api_key, timeout=float(config.get("timeout", 60)))
 
     prompt = (
-        "Create a premium, professional LinkedIn cover-style image for a business audience.\n"
+        "Create a premium, professional LinkedIn cover-style image of a professional woman named Sofie, AI consultant, for a business audience.\n"
         "Art direction:\n"
         "- Executive editorial style, modern and minimal.\n"
+        "- Female professional in business attire, confident and approachable.\n"
         "- Clean composition with a clear focal point and strong visual hierarchy.\n"
         "- Sophisticated corporate palette (deep blue, slate, white, subtle accent), high contrast.\n"
         "- Subtle data/operations motifs (workflow lines, dashboards, process blocks) without clutter.\n"

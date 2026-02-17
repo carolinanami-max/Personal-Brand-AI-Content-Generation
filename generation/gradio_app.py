@@ -809,7 +809,7 @@ def build_interface() -> gr.Blocks:
                                 )
                                 post_type = gr.Dropdown(
                                     label="Choose Post Type",
-                                    choices=["thought_leadership", "educational", "trend_commentary"],
+                                    choices=["thought_leadership", "educational", "trend_commentary", "engagement_dm"],
                                     value="thought_leadership",
                                 )
                                 target_persona = gr.Textbox(
